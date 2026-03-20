@@ -1,0 +1,99 @@
+name: ovn-kubernetes
+summary: Rock for the OVN-Kubernetes CNI.
+description: This rock is a drop in replacement for the ovn-kubernetes/ovn-kube-ubuntu image.
+version: "1.2"
+license: Apache-2.0
+
+base: ubuntu@24.04
+build-base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+
+parts:
+  tools:
+    plugin: nil
+    stage-packages:
+      - iproute2
+      - curl
+      - software-properties-common
+      - util-linux
+      - nftables
+      - libmnl0
+
+  ovn:
+    plugin: nil
+    stage-packages:
+      - ovn-central
+      - ovn-common
+      - ovn-host
+
+  ovs:
+    plugin: nil
+    stage-packages:
+      - openvswitch-switch
+      - openvswitch-common
+    override-prime: |
+      ln -sf /usr/lib/openvswitch-switch/ovs-vswitchd usr/bin/ovs-vswitchd
+
+  kubectl:
+    plugin: nil
+    override-prime: |
+      mkdir -p usr/local/bin
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      install -o root -g root -m 0755 kubectl usr/local/bin/kubectl
+  
+  ovn-kubernetes:
+    plugin: make
+    source: https://github.com/ovn-kubernetes/ovn-kubernetes.git
+    source-branch: release-1.2
+    build-snaps:
+      - go/latest/stable
+    override-build: |
+      mkdir -p $CRAFT_PART_INSTALL/usr/bin
+      cd go-controller
+      LDFLAGS= make
+
+      OUT_DIR=$CRAFT_PART_BUILD/go-controller/_output/go/bin
+      OVNKUBE_BINARIES=(
+        ovnkube
+        ovn-kube-util
+        ovndbchecker
+        hybrid-overlay-node
+        ovnkube-identity
+      )
+      for binary in "${OVNKUBE_BINARIES[@]}"; do
+        install -D -m 0755 $OUT_DIR/$binary $CRAFT_PART_INSTALL/usr/bin/$binary
+      done
+
+      install -D -m 0755 $OUT_DIR/ovn-k8s-cni-overlay $CRAFT_PART_INSTALL/usr/libexec/cni/ovn-k8s-cni-overlay
+
+      DIST_DIR=$CRAFT_PART_BUILD/dist/images
+      install -D -m 0755 $DIST_DIR/ovnkube.sh $CRAFT_PART_INSTALL/root/ovnkube.sh
+      install -D -m 0755 $DIST_DIR/ovndb-raft-functions.sh $CRAFT_PART_INSTALL/root/ovndb-raft-functions.sh
+
+      IPTABLES_SCRIPTS_DIR="$CRAFT_PART_BUILD/dist/images/iptables-scripts"
+      IPTABLES_SCRIPTS=(
+        iptables
+        iptables-restore
+        iptables-save
+        ip6tables
+        ip6tables-restore
+        ip6tables-save
+      )
+      for script in "${IPTABLES_SCRIPTS[@]}"; do
+        install -D -m 0755 $IPTABLES_SCRIPTS_DIR/$script $CRAFT_PART_INSTALL/usr/sbin/$script
+      done
+
+      BRANCH=$(git rev-parse --symbolic-full-name HEAD)
+      COMMIT=$(git rev-parse HEAD)
+      echo "ref: ${BRANCH}  commit: ${COMMIT}" > $CRAFT_PART_INSTALL/root/git_info
+
+
+
+
+# TODO - investigate
+# how is ovn_k8s.conf used? is it replaced just for testing?
+# cp ${CRAFT_PROJECT_DIR}/ovn_k8s.conf etc/openvswitch/ovn_k8s.conf
+# why make install does not install all files?
+# DESTDIR=$CRAFT_PART_INSTALL make install
