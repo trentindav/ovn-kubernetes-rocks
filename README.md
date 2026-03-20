@@ -15,3 +15,12 @@ rockcraft pack
 sudo rockcraft.skopeo --insecure-policy copy oci-archive:ovn-kubernetes_1.2_amd64.rock docker-daemon:ovn-kubernetes:1.2
 docker run -it --rm ovn-kubernetes:1.2 exec /root/ovnkube.sh display_env
 ```
+
+With the image loaded into Docker, it is possible to use the OVN-Kubernetes
+`kind.sh` development environment to test the CNI:
+
+```shell
+git clone https://github.com/ovn-kubernetes/ovn-kubernetes.git
+cd ovn-kubernetes/contrib
+./kind.sh -ov ovn-kubernetes:1.2
+```
