@@ -40,7 +40,7 @@ parts:
     plugin: nil
     override-prime: |
       mkdir -p usr/local/bin
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${CRAFT_ARCH_BUILD_FOR}/kubectl"
       install -o root -g root -m 0755 kubectl usr/local/bin/kubectl
   
   ovn-kubernetes:
@@ -48,7 +48,7 @@ parts:
     source: https://github.com/ovn-kubernetes/ovn-kubernetes.git
     source-branch: release-1.2
     build-snaps:
-      - go/latest/stable
+      - go/1.24/stable
     override-build: |
       mkdir -p $CRAFT_PART_INSTALL/usr/bin
       cd go-controller
