@@ -1,1 +1,2 @@
 *.rock
+.github/agents/  # Testing agent files
