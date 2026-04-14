@@ -1,0 +1,5 @@
+versions:
+  - architecture: amd64
+    revision: 4238
+  - architecture: arm64
+    revision: 4241
