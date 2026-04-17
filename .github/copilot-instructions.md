@@ -30,7 +30,8 @@ OCI container images (ROCKs) for the OVN-Kubernetes CNI, built with [rockcraft](
 
 ```
 <version>/                    # One directory per upstream OVN-Kubernetes release
-  rockcraft.yaml              # Rock definition (or per-image subdirectory)
+  ovn-kubernetes/             # Rock name for this project (matches image name)
+    rockcraft.yaml            # Rock definition (or per-image subdirectory)
 tests/
   tox.ini                     # Tox configuration for format, lint, sanity, integration envs
   requirements-dev.txt        # Dev/lint dependencies (black, isort, flake8, codespell, licenseheaders)
@@ -60,16 +61,19 @@ CODEOWNERS                    # Code ownership assignments
   sudo rockcraft.skopeo --insecure-policy copy oci-archive:<rock-file>.rock docker-daemon:<name>:<version>
   docker run -it --rm <name>:<version> exec /root/ovnkube.sh display_env
   ```
-* **Run sanity tests:** `cd tests && tox -e sanity`
 * **Lint Python tests:** `cd tests && tox -e lint`
 * **Format Python tests:** `cd tests && tox -e format`
+* **Run sanity tests:**
+  ```shell
+  export BUILT_ROCKS_METADATA='[{"name":"<name>","version":"<version>","path":"<version>/<name>","arch":"amd64","image":"<name>:<version>","rockcraft-revision":"","runs-on-labels":[]}]' 
+  cd tests && tox -e sanity
+  ```
 
 ## 6. CI/CD Conventions
 
 * CI reuses workflows from `canonical/k8s-workflows@main` for: building rocks, running tests, scanning images with Trivy, and assembling multiarch manifests.
 * The `pull_request.yaml` workflow runs on both `pull_request` and `push` to `main`.
 * Rockcraft revisions used in CI must match those in `.rockcraft-version.yaml`.
-* Pass the `UBUNTU_PRO_TOKEN` secret for FIPS-enabled builds.
 
 ## 7. rockcraft.yaml Conventions
 
