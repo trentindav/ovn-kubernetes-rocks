@@ -1,2 +1,3 @@
 *.rock
-.github/agents
+*.tox
+__pycache__/
