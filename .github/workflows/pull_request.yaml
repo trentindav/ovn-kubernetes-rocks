@@ -1,0 +1,46 @@
+name: Push Multiarch Images
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push-arch-specifics:
+    name: Build Rocks and Push Arch Specific Images
+    uses: canonical/k8s-workflows/.github/workflows/build_rocks.yaml@main
+    with:
+      owner: ${{ github.repository_owner }}
+      trivy-image-config: "./trivy.yaml"
+      multiarch-awareness: true
+      cache-action: ${{ (github.event_name == 'push') && 'save' || 'restore' }}
+      arch-skipping-maximize-build-space: '["arm64", "amd64"]'
+      platform-labels: '{"arm64": "ubuntu-24.04-arm", "amd64": "ubuntu-24.04"}'
+      enabled-ubuntu-pro-features: ""
+      rockcraft-revisions: '{"amd64": "4238", "arm64": "4241"}'
+  run-tests:
+    uses: canonical/k8s-workflows/.github/workflows/run_tests.yaml@main
+    needs: [build-and-push-arch-specifics]
+    secrets: inherit
+    with:
+      rock-metas: ${{ needs.build-and-push-arch-specifics.outputs.rock-metas }}
+  scan-images:
+    uses: canonical/k8s-workflows/.github/workflows/scan_images.yaml@main
+    needs: [build-and-push-arch-specifics]
+    secrets: inherit
+    with:
+      upload-result: ${{ github.event_name == 'push' }}
+      images: ${{ needs.build-and-push-arch-specifics.outputs.images }}
+      trivy-image-config: ./trivy.yaml
+  build-and-push-multiarch-manifest:
+    name: Combine Rocks and Push Multiarch Manifest
+    uses: canonical/k8s-workflows/.github/workflows/assemble_multiarch_image.yaml@main
+    needs: [build-and-push-arch-specifics, scan-images, run-tests]
+    if: ${{ needs.build-and-push-arch-specifics.outputs.changed-rock-metas != '[]' }}
+    with:
+      rock-metas: ${{ needs.build-and-push-arch-specifics.outputs.changed-rock-metas }}
+      dry-run: ${{ github.event_name != 'push' }}

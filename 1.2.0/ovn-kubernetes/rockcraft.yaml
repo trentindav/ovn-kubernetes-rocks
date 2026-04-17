@@ -1,7 +1,7 @@
 name: ovn-kubernetes
 summary: Rock for the OVN-Kubernetes CNI.
 description: This rock is a drop in replacement for the ovn-kubernetes/ovn-kube-ubuntu image.
-version: "1.2"
+version: "1.2.0"
 license: Apache-2.0
 
 base: ubuntu@25.10
@@ -54,6 +54,7 @@ parts:
       cd go-controller
       LDFLAGS= make
 
+      # Note: make install does not install all files, they are instead copied like in the reference Dockerfile
       OUT_DIR=$CRAFT_PART_BUILD/go-controller/_output/go/bin
       OVNKUBE_BINARIES=(
         ovnkube
@@ -95,5 +96,3 @@ parts:
 # TODO - investigate
 # how is ovn_k8s.conf used? is it replaced just for testing?
 # cp ${CRAFT_PROJECT_DIR}/ovn_k8s.conf etc/openvswitch/ovn_k8s.conf
-# why make install does not install all files?
-# DESTDIR=$CRAFT_PART_INSTALL make install
