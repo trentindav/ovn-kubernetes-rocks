@@ -55,11 +55,7 @@ def test_executable(rock_param: rock.RockTestParam):
     "rock_param", get_ovn_kubernetes_params(), ids=rock.rock_param_id
 )
 def test_pebble_executable(rock_param: rock.RockTestParam):
-    if rock_param.variant == "static":
-        # Static variants use different rockcraft channels with different pebble versions
-        rock.check_pebble_direct(rock_param.image)
-    else:
-        rock.check_pebble_direct(rock_param.image, config.PEBBLE_VERSION)
+    rock.check_pebble_direct(rock_param.image)
 
 
 @pytest.mark.parametrize(

@@ -12,7 +12,7 @@ To build and verify that the generated image can run the `ovnkube.sh` command
 ```shell
 cd 1.4.0/ovn-kubernetes
 rockcraft pack
-sudo rockcraft.skopeo --insecure-policy copy oci-archive:ovn-kubernetes_1.4.0_amd64.rock docker-daemon:ovn-kubernetes:1.4
+sudo rockcraft.skopeo --insecure-policy copy oci-archive:ovn-kubernetes_1.4.0_amd64.rock docker-daemon:ovn-kubernetes:1.4.0
 docker run -it --rm ovn-kubernetes:1.4 exec /root/ovnkube.sh display_env
 ```
 
