@@ -62,6 +62,7 @@ parts:
         ovndbchecker
         hybrid-overlay-node
         ovnkube-identity
+        ovnkube-observ
       )
       for binary in "${OVNKUBE_BINARIES[@]}"; do
         install -D -m 0755 $OUT_DIR/$binary $CRAFT_PART_INSTALL/usr/bin/$binary

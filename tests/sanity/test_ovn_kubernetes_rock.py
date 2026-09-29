@@ -11,15 +11,33 @@ IMAGE_BASE = f"ghcr.io/canonical/{IMAGE_NAME}"
 OVNKUBE_BINARY = "/usr/bin/ovnkube"
 IMAGE_ENTRYPOINT = f"{OVNKUBE_BINARY} --version"
 
-# Binaries installed by the ovn-kubernetes part
-OVN_KUBERNETES_BINARIES = [
-    OVNKUBE_BINARY,
-    "/usr/bin/ovn-kube-util",
-    "/usr/bin/ovndbchecker",
-    "/usr/bin/hybrid-overlay-node",
-    "/usr/bin/ovnkube-identity",
-    "/usr/libexec/cni/ovn-k8s-cni-overlay",
-]
+# Binaries installed by the ovn-kubernetes part. The set varies by upstream
+# release: ovndbchecker was removed in 1.4.0.
+OVN_KUBERNETES_BINARIES_BY_VERSION = {
+    "1.2.0": [
+        OVNKUBE_BINARY,
+        "/usr/bin/ovn-kube-util",
+        "/usr/bin/ovndbchecker",
+        "/usr/bin/hybrid-overlay-node",
+        "/usr/bin/ovnkube-identity",
+        "/usr/bin/ovnkube-observ",
+        "/usr/libexec/cni/ovn-k8s-cni-overlay",
+    ],
+    "1.4.0": [
+        OVNKUBE_BINARY,
+        "/usr/bin/ovn-kube-util",
+        "/usr/bin/hybrid-overlay-node",
+        "/usr/bin/ovnkube-identity",
+        "/usr/bin/ovnkube-observ",
+        "/usr/libexec/cni/ovn-k8s-cni-overlay",
+    ],
+}
+
+
+def binaries_for(version: str) -> list:
+    return OVN_KUBERNETES_BINARIES_BY_VERSION.get(
+        version, OVN_KUBERNETES_BINARIES_BY_VERSION["1.2.0"]
+    )
 
 
 def get_ovn_kubernetes_params():
@@ -45,16 +63,14 @@ def test_pebble_executable(rock_param: rock.RockTestParam):
 
 
 @pytest.mark.parametrize(
-    "binary", OVN_KUBERNETES_BINARIES, ids=lambda b: b.split("/")[-1]
-)
-@pytest.mark.parametrize(
     "rock_param", get_ovn_kubernetes_params(), ids=rock.rock_param_id
 )
-def test_binaries_present(rock_param: rock.RockTestParam, binary: str):
-    process = docker_util.run_in_docker(
-        rock_param.image, ["ls", binary], check_exit_code=False
-    )
-    assert process.returncode == 0, f"Binary {binary} not in {rock_param.image}"
+def test_binaries_present(rock_param: rock.RockTestParam):
+    for binary in binaries_for(rock_param.version):
+        process = docker_util.run_in_docker(
+            rock_param.image, ["ls", binary], check_exit_code=False
+        )
+        assert process.returncode == 0, f"Binary {binary} not in {rock_param.image}"
 
 
 @pytest.mark.parametrize(

@@ -20,6 +20,11 @@ parts:
       - util-linux
       - nftables
       - libmnl0
+      - ca-certificates
+      - gpg
+      - ndisc6
+      - libndp-tools
+      - tcpdump
 
   ovn:
     plugin: nil
@@ -33,36 +38,48 @@ parts:
     stage-packages:
       - openvswitch-switch
       - openvswitch-common
+      - openvswitch-test
     override-prime: |
       ln -sf /usr/lib/openvswitch-switch/ovs-vswitchd usr/bin/ovs-vswitchd
 
   kubectl:
     plugin: nil
-    override-prime: |
-      mkdir -p usr/local/bin
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${CRAFT_ARCH_BUILD_FOR}/kubectl"
-      install -o root -g root -m 0755 kubectl usr/local/bin/kubectl
+    build-packages:
+      - ca-certificates
+      - curl
+      - gpg
+    override-build: |
+      KUBECTL_MINOR=1.36
+      kubectl_apt_signing_fingerprint=DE15B14486CD377B9E876E1A234654DA9A296436
+      kubectl_key=/tmp/kubernetes-apt-keyring.asc
+      curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${KUBECTL_MINOR}/deb/Release.key" -o "${kubectl_key}"
+      test "$(gpg --show-keys --with-colons "${kubectl_key}" | awk -F: '/^fpr:/ {print $10; exit}')" = "${kubectl_apt_signing_fingerprint}"
+      mkdir -p /etc/apt/keyrings
+      gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg "${kubectl_key}"
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBECTL_MINOR}/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+      apt-get update
+      apt-get download kubectl
+      dpkg-deb -x kubectl_*.deb $CRAFT_PART_INSTALL
   
   ovn-kubernetes:
     plugin: make
     source: https://github.com/ovn-kubernetes/ovn-kubernetes.git
-    #source-branch: release-1.4
-    source-tag: 1.4.0
+    source-tag: v1.4.0
     build-snaps:
-      - go/1.24/stable
+      - go/1.26/stable
     override-build: |
       mkdir -p $CRAFT_PART_INSTALL/usr/bin
       cd go-controller
-      LDFLAGS= make
+      CGO_ENABLED=0 GOOS=linux GOARCH=$CRAFT_ARCH_BUILD_FOR LDFLAGS= make
 
       # Note: make install does not install all files, they are instead copied like in the reference Dockerfile
       OUT_DIR=$CRAFT_PART_BUILD/go-controller/_output/go/bin
       OVNKUBE_BINARIES=(
         ovnkube
         ovn-kube-util
-        ovndbchecker
         hybrid-overlay-node
         ovnkube-identity
+        ovnkube-observ
       )
       for binary in "${OVNKUBE_BINARIES[@]}"; do
         install -D -m 0755 $OUT_DIR/$binary $CRAFT_PART_INSTALL/usr/bin/$binary
@@ -72,7 +89,6 @@ parts:
 
       DIST_DIR=$CRAFT_PART_BUILD/dist/images
       install -D -m 0755 $DIST_DIR/ovnkube.sh $CRAFT_PART_INSTALL/root/ovnkube.sh
-      install -D -m 0755 $DIST_DIR/ovndb-raft-functions.sh $CRAFT_PART_INSTALL/root/ovndb-raft-functions.sh
 
       IPTABLES_SCRIPTS_DIR="$CRAFT_PART_BUILD/dist/images/iptables-scripts"
       IPTABLES_SCRIPTS=(
@@ -87,13 +103,11 @@ parts:
         install -D -m 0755 $IPTABLES_SCRIPTS_DIR/$script $CRAFT_PART_INSTALL/usr/sbin/$script
       done
 
+      install -D -m 0644 $DIST_DIR/ovn_k8s.conf $CRAFT_PART_INSTALL/etc/openvswitch/ovn_k8s.conf
+
+      install -d $CRAFT_PART_INSTALL/usr/share/licenses/ovn-kubernetes
+      cp -R $CRAFT_PART_BUILD/LICENSES/. $CRAFT_PART_INSTALL/usr/share/licenses/ovn-kubernetes/
+
       BRANCH=$(git rev-parse --symbolic-full-name HEAD)
       COMMIT=$(git rev-parse HEAD)
       echo "ref: ${BRANCH}  commit: ${COMMIT}" > $CRAFT_PART_INSTALL/root/git_info
-
-
-
-
-# TODO - investigate
-# how is ovn_k8s.conf used? is it replaced just for testing?
-# cp ${CRAFT_PROJECT_DIR}/ovn_k8s.conf etc/openvswitch/ovn_k8s.conf
